@@ -16,12 +16,23 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
 })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider><ToastProvider><UploadProvider><PlaybackProvider><App /></PlaybackProvider></UploadProvider></ToastProvider></AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
-  </StrictMode>,
-)
+async function bootstrap() {
+  try {
+    const cfg = await fetch('/config.json').then(r => r.json()).catch(() => ({}))
+    ;(window as any).__APP_CONFIG__ = cfg
+  } catch {
+    (window as any).__APP_CONFIG__ = {}
+  }
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider><ToastProvider><UploadProvider><PlaybackProvider><App /></PlaybackProvider></UploadProvider></ToastProvider></AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+}
+
+bootstrap()
