@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Brand } from './Brand'
+import { ConfirmDialog } from './ConfirmDialog'
 
 export function AppShell({ children }: PropsWithChildren) {
   const { user, logout } = useAuth()
@@ -48,6 +49,11 @@ export function AppShell({ children }: PropsWithChildren) {
       navigate('/login')
     }
   }
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
+  const handleLogoutConfirmed = async () => {
+    setConfirmLogoutOpen(false)
+    await doLogout()
+  }
   return (
     <div className="app-shell">
       <header className="mobile-shell-header">
@@ -71,11 +77,20 @@ export function AppShell({ children }: PropsWithChildren) {
           <strong>Aprende a tu ritmo</strong>
           <span>Tu avance se guarda automáticamente.</span>
         </div>
-        <button className="user-menu" onClick={doLogout}>
+        <button className="user-menu" onClick={() => setConfirmLogoutOpen(true)}>
           <span className="avatar">{user?.name.charAt(0).toUpperCase()}</span>
           <span><strong>{user?.name}</strong><small>{user?.role === 'ADMIN' ? 'Administrador' : 'Estudiante'}</small></span>
           <LogOut size={17} />
         </button>
+        <ConfirmDialog
+          open={confirmLogoutOpen}
+          title="Cerrar sesión"
+          description="¿Estás seguro que quieres cerrar sesión?"
+          confirmLabel="Cerrar sesión"
+          cancelLabel="Cancelar"
+          onConfirm={handleLogoutConfirmed}
+          onCancel={() => setConfirmLogoutOpen(false)}
+        />
       </aside>
       {mobileOpen && <button type="button" className="sidebar-overlay" aria-label="Cerrar navegación" onClick={() => setMobileOpen(false)} />}
       <main className="main-content"><div className="content-frame">{children}</div></main>
