@@ -11,13 +11,10 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const runtimeHost = (globalThis as any).__APP_CONFIG__?.backend as string | undefined
+  const runtimeHost = (globalThis as { __APP_CONFIG__?: { backend?: string } }).__APP_CONFIG__?.backend
   const host = runtimeHost ?? (import.meta.env.VITE_BACKEND_HOST as string | undefined) ?? ''
   const prefix = host ? host.replace(/\/$/, '') : ''
   const url = prefix ? `${prefix}/api${path}` : `/api${path}`
-  // Debug: log resolved API url for troubleshooting runtime vs build-time host
-  // eslint-disable-next-line no-console
-  console.debug('API request', { method: options.method ?? 'GET', url })
   const response = await fetch(url, {
     credentials: 'include',
     ...options,
@@ -26,8 +23,6 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       ...options.headers,
     },
   })
-  // eslint-disable-next-line no-console
-  console.debug('API response', { url, status: response.status })
   if (!response.ok) {
     let message = 'Ocurrió un error inesperado'
     try {

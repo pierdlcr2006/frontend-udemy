@@ -20,7 +20,7 @@ export function LoginPage() {
     setError('')
     try {
       const logged = await login(email, password)
-      navigate(logged.role === 'ADMIN' ? '/admin' : '/')
+      navigate(logged.role === 'ADMIN' ? '/admin' : '/library')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No pudimos iniciar sesión')
     } finally {

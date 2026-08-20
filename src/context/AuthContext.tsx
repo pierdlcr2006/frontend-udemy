@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { createContext, useContext, type PropsWithChildren } from 'react'
+import { createContext, useContext, useState, type PropsWithChildren } from 'react'
 import { api, ApiError } from '../api/client'
 import type { User } from '../types'
 
@@ -15,6 +15,7 @@ const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient()
+  const [signedOut, setSignedOut] = useState(() => window.sessionStorage.getItem('aula:signed-out') === '1')
   const session = useQuery({
     queryKey: ['session'],
     queryFn: () => api<{ user: User }>('/auth/me'),
@@ -27,28 +28,35 @@ export function AuthProvider({ children }: PropsWithChildren) {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
+    setSignedOut(false)
+    window.sessionStorage.removeItem('aula:signed-out')
     queryClient.setQueryData(['session'], result)
     return result.user
   }
 
   const logout = async () => {
+    // Close the local session before waiting for the network.
+    setSignedOut(true)
+    window.sessionStorage.setItem('aula:signed-out', '1')
+    await queryClient.cancelQueries({ queryKey: ['session'] })
+    queryClient.removeQueries({ queryKey: ['session'], exact: true })
     try {
-      await api('/auth/logout', { method: 'POST' })
-    } catch (err) {
-      // Log but proceed to clear local session to avoid leaving UI stuck
-      // eslint-disable-next-line no-console
-      console.error('Logout request failed', err)
+      await Promise.race([
+        api('/auth/logout', { method: 'POST' }),
+        new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('logout-timeout')), 5000)),
+      ])
+    } catch {
+      // The local session is already closed even if the server is unavailable.
     } finally {
-      // Clear session cache and refetch 'session' to ensure protected routes update
-      queryClient.removeQueries({ queryKey: ['session'] })
-      queryClient.invalidateQueries({ queryKey: ['session'] })
+      queryClient.removeQueries({ queryKey: ['session'], exact: true })
     }
   }
 
   const unauthenticated = session.error instanceof ApiError && session.error.status === 401
+  const currentUser = signedOut ? null : unauthenticated ? null : session.data?.user ?? null
   return (
     <AuthContext.Provider
-      value={{ user: unauthenticated ? null : session.data?.user ?? null, loading: session.isLoading, login, logout }}
+      value={{ user: currentUser, loading: signedOut ? false : session.isLoading, login, logout }} 
     >
       {children}
     </AuthContext.Provider>

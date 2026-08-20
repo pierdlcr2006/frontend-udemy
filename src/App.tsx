@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { useAuth } from './context/AuthContext'
 import { AdminCoursesPage, AdminDashboardPage, AdminUsersPage } from './pages/AdminPage'
 import { AdminLayout } from './pages/AdminLayout'
 import { LibraryPage } from './pages/LibraryPage'
@@ -8,10 +9,16 @@ import { LoginPage } from './pages/LoginPage'
 
 const CoursePage = lazy(() => import('./pages/CoursePage').then(module => ({ default: module.CoursePage })))
 
+function HomeRedirect() {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="splash"><div className="loader" />Preparando tu aula…</div>
+  return <Navigate to={user?.role === 'ADMIN' ? '/admin' : user ? '/library' : '/login'} replace />
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/library" element={<LibraryPage />} />

@@ -12,16 +12,22 @@ import './toast.css'
 import './upload.css'
 import './premium.css'
 
+declare global {
+  interface Window {
+    __APP_CONFIG__?: { backend?: string }
+  }
+}
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
 })
 
 async function bootstrap() {
   try {
-    const cfg = await fetch('/config.json').then(r => r.json()).catch(() => ({}))
-    ;(window as any).__APP_CONFIG__ = cfg
+    const cfg = await fetch('/config.json').then(r => r.json() as Promise<{ backend?: string }>).catch(() => ({} as { backend?: string }))
+    window.__APP_CONFIG__ = cfg
   } catch {
-    (window as any).__APP_CONFIG__ = {}
+    window.__APP_CONFIG__ = {}
   }
 
   createRoot(document.getElementById('root')!).render(

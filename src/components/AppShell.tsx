@@ -39,20 +39,16 @@ export function AppShell({ children }: PropsWithChildren) {
     }
   }, [mobileOpen])
 
-  const doLogout = async () => {
-    try {
-      await logout()
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Logout failed', err)
-    } finally {
-      navigate('/login')
-    }
+  const doLogout = () => {
+    setMobileOpen(false)
+    // Navigate immediately; cookie cleanup continues in the background.
+    navigate('/login', { replace: true })
+    void logout()
   }
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
-  const handleLogoutConfirmed = async () => {
+  const handleLogoutConfirmed = () => {
     setConfirmLogoutOpen(false)
-    await doLogout()
+    doLogout()
   }
   return (
     <div className="app-shell">

@@ -20,7 +20,7 @@ function renderShell(path = '/admin/courses', children: ReactNode = <div>Conteni
 describe('AppShell', () => {
   it('expone rutas administrativas independientes y marca la ruta activa', () => {
     renderShell()
-    expect(screen.getByRole('link', { name: /mi aprendizaje/i })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: /mi aprendizaje/i })).toHaveAttribute('href', '/library')
     expect(screen.getByRole('link', { name: /resumen/i })).toHaveAttribute('href', '/admin')
     expect(screen.getByRole('link', { name: /cursos/i })).toHaveAttribute('href', '/admin/courses')
     expect(screen.getByRole('link', { name: /usuarios/i })).toHaveAttribute('href', '/admin/users')

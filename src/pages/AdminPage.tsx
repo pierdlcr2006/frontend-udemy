@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookCopy, Check, Cloud, Eye, EyeOff, FileVideo, Plus, Search, Trash2, Upload, UserPlus } from 'lucide-react'
-import { useState, useEffect, type FormEvent, type ReactNode } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { api, ApiError } from '../api/client'
 import { AdminDashboard } from '../components/AdminDashboard'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useUploads } from '../context/UploadContext'
 import { useToast } from '../context/ToastContext'
 import type { Course, S3Object, User } from '../types'
@@ -24,6 +25,7 @@ export function AdminCoursesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showCourseForm, setShowCourseForm] = useState(false)
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null)
   const courses = useQuery({ queryKey: ['admin-courses'], queryFn: () => api<Course[]>('/admin/courses') })
   const selected = courses.data?.find(course => course.id === selectedId) ?? courses.data?.[0]
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-courses'] })
@@ -78,13 +80,14 @@ export function AdminCoursesPage() {
             <div className="heading-actions">
               <button type="button" className="secondary-button" onClick={() => setEditingCourse(selected)}><Plus size={16} /> Editar curso</button>
               <button className="secondary-button" onClick={() => updateCourse.mutate({ id: selected.id, body: { published: !selected.published } })}>{selected.published ? <><EyeOff /> Ocultar</> : <><Eye /> Publicar</>}</button>
-              <button className="danger-icon" title="Eliminar curso" onClick={() => window.confirm('¿Eliminar este curso y todo su progreso?') && deleteCourse.mutate(selected.id)}><Trash2 /></button>
+              <button className="danger-icon" title="Eliminar curso" onClick={() => setCourseToDelete(selected)}><Trash2 /></button>
             </div>
           </div>
           <CourseBuilder course={selected} refresh={refresh} />
         </> : <div className="empty-state compact"><BookCopy /><strong>Crea tu primer curso</strong><span>Después podrás agregar secciones y videos de S3.</span></div>}
       </section>
       </div>
+      <ConfirmDialog open={Boolean(courseToDelete)} title="Eliminar curso" description={courseToDelete ? 'Se eliminará "' + courseToDelete.title + '" y todo su progreso. Esta acción no se puede deshacer.' : undefined} confirmLabel="Eliminar curso" variant="danger" onConfirm={() => { if (!courseToDelete) return; deleteCourse.mutate(courseToDelete.id); setCourseToDelete(null) }} onCancel={() => setCourseToDelete(null)} />
     </>
   )
 }
@@ -126,6 +129,8 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
   const [lessonSection, setLessonSection] = useState<string | null>(null)
   const [editingSection, setEditingSection] = useState<{ id: string; title: string } | null>(null)
   const [editingLesson, setEditingLesson] = useState<{ id: string; title: string; s3Key?: string } | null>(null)
+  const [sectionToDelete, setSectionToDelete] = useState<{ id: string; title: string } | null>(null)
+  const [lessonToDelete, setLessonToDelete] = useState<{ id: string; title: string } | null>(null)
   const createSection = useMutation({ mutationFn: () => api(`/admin/courses/${course.id}/sections`, { method: 'POST', body: JSON.stringify({ title: sectionTitle, sortOrder: course.sections.length }) }), onSuccess: () => { setSectionTitle(''); refresh(); pushToast({ title: 'Sección creada', tone: 'success', message: sectionTitle }) } })
   const removeSection = useMutation({ mutationFn: (id: string) => api(`/admin/sections/${id}`, { method: 'DELETE' }), onSuccess: () => { refresh(); pushToast({ title: 'Sección eliminada', tone: 'danger' }) } })
   const removeLesson = useMutation({ mutationFn: (id: string) => api(`/admin/lessons/${id}`, { method: 'DELETE' }), onSuccess: () => { refresh(); pushToast({ title: 'Video eliminado', tone: 'danger' }) } })
@@ -135,7 +140,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
     if (typeof title !== 'undefined') body.title = title
     if (typeof s3Key !== 'undefined') body.s3Key = s3Key
     return api(`/admin/lessons/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
-  }, onSuccess: (_, variables) => { setEditingLesson(null); refresh(); pushToast({ title: 'Video actualizado', tone: 'success', message: (variables as any).title }) } })
+  }, onSuccess: (_, variables) => { setEditingLesson(null); refresh(); pushToast({ title: 'Video actualizado', tone: 'success', message: variables.title ?? 'Cambios guardados' }) } })
   return <div className="course-builder">
     <div className="builder-title"><h3>Estructura del curso</h3><span>Las lecciones se muestran en este orden.</span></div>
     {editingSection && (
@@ -155,6 +160,8 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
         </form>
       </Modal>
     )}
+    <ConfirmDialog open={Boolean(sectionToDelete)} title="Eliminar sección" description={sectionToDelete ? 'Se eliminará la sección "' + sectionToDelete.title + '" y sus videos.' : undefined} confirmLabel="Eliminar sección" variant="danger" onConfirm={() => { if (!sectionToDelete) return; removeSection.mutate(sectionToDelete.id); setSectionToDelete(null) }} onCancel={() => setSectionToDelete(null)} />
+    <ConfirmDialog open={Boolean(lessonToDelete)} title="Eliminar video" description={lessonToDelete ? 'Se quitará "' + lessonToDelete.title + '" del curso. El archivo de S3 no se eliminará.' : undefined} confirmLabel="Eliminar video" variant="danger" onConfirm={() => { if (!lessonToDelete) return; removeLesson.mutate(lessonToDelete.id); setLessonToDelete(null) }} onCancel={() => setLessonToDelete(null)} />
     {course.sections.map((section, index) => {
       const isOpen = openSections[section.id] ?? false
       return <div className="section-block" key={section.id}>
@@ -164,7 +171,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
         <div className="section-actions">
           <button type="button" className="section-toggle" onClick={() => setOpenSections(prev => ({ ...prev, [section.id]: !prev[section.id] }))}>{isOpen ? '▾' : '▸'}</button>
           <button type="button" onClick={() => setEditingSection({ id: section.id, title: section.title })}>Editar</button>
-          <button type="button" onClick={() => window.confirm('¿Eliminar esta sección?') && removeSection.mutate(section.id)}><Trash2 size={16} /></button>
+          <button type="button" onClick={() => setSectionToDelete({ id: section.id, title: section.title })}><Trash2 size={16} /></button>
         </div>
       </div>
       {isOpen && (
@@ -175,7 +182,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
               <div><strong>{lesson.title}</strong><small>{lesson.s3Key}</small></div>
               <Cloud size={16} />
               <button type="button" onClick={() => setEditingLesson({ id: lesson.id, title: lesson.title, s3Key: lesson.s3Key })}>Editar</button>
-              <button type="button" onClick={() => removeLesson.mutate(lesson.id)}><Trash2 size={15} /></button>
+              <button type="button" onClick={() => setLessonToDelete({ id: lesson.id, title: lesson.title })}><Trash2 size={15} /></button>
             </div>
           })}
           {lessonSection === section.id ? <CreateLessonForm sectionId={section.id} sortOrder={section.lessons.length} onDone={() => { setLessonSection(null); refresh() }} /> : <button className="add-row" onClick={() => setLessonSection(section.id)}><Plus size={16} /> Agregar videos</button>}
@@ -190,7 +197,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return <div className="modal-overlay" role="presentation" onMouseDown={onClose}>
     <div className="modal-card" role="dialog" aria-modal="true" aria-label={title} onMouseDown={event => event.stopPropagation()}>
-      <div className="modal-header"><strong>{title}</strong><button type="button" onClick={onClose}>Cerrar</button></div>
+      <div className="modal-header"><strong>{title}</strong><button type="button" className="modal-close" aria-label="Cerrar diálogo" onClick={onClose}>×</button></div>
       {children}
     </div>
   </div>
@@ -216,29 +223,9 @@ function CreateLessonForm({ sectionId, sortOrder, onDone }: { sectionId: string;
     queryKey: ['s3-objects', searchTerm],
     queryFn: () => api<{ items: S3Object[]; nextCursor: string | null }>(`/admin/s3/objects${searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : ''}`),
     retry: false,
-    enabled: true,
+    enabled: mode === 'existing',
   })
-  const [listed, setListed] = useState<S3Object[] | null>(null)
-
-  useEffect(() => {
-    if (mode !== 'existing') {
-      setListed(null)
-      return
-    }
-    // Prefer react-query data when available (includes search results)
-    if (objects.data?.items) {
-      setListed(objects.data.items)
-      return
-    }
-    // otherwise try to refetch and use that result
-    void objects.refetch().then(res => {
-      if (res.data?.items) setListed(res.data.items)
-    }).catch(() => {})
-    // ensure initial non-search listing by direct API call when search is empty
-    if (!searchTerm) {
-      void api<{ items: S3Object[] }>(`/admin/s3/objects`).then(data => setListed(data.items)).catch(() => {})
-    }
-  }, [mode, objects.data, searchTerm])
+  const listed = objects.data?.items ?? null
   const create = useMutation({ mutationFn: () => api(`/admin/sections/${sectionId}/lessons`, { method: 'POST', body: JSON.stringify({ title, s3Key, sortOrder }) }), onSuccess: () => { pushToast({ title: 'Video agregado', tone: 'success', message: title }); onDone() }, onError: (err) => setError(err instanceof ApiError ? err.message : 'No se pudo crear la lección') })
 
   const selectFiles = (files: FileList | null) => {
@@ -284,7 +271,7 @@ function CreateLessonForm({ sectionId, sortOrder, onDone }: { sectionId: string;
     <div className="source-tabs"><button type="button" onClick={() => setMode('upload')}><Upload size={15} /> Subir videos</button><button type="button" className="active"><Cloud size={15} /> Elegir de S3</button></div>
     <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Título visible del video" required minLength={2} />
     <div className="s3-picker"><label><Search size={15} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar video en S3" /></label>
-      {objects.isError ? <div className="picker-message">No se pudo consultar S3. Verifica las credenciales y el bucket.</div> : objects.isLoading ? <div className="picker-message">Consultando bucket…</div> : <div className="object-list">{(listed ?? objects.data?.items ?? []).map(item => <button type="button" key={item.key} className={s3Key === item.key ? 'selected' : ''} onClick={() => setS3Key(item.key)}><span>{s3Key === item.key ? <Check /> : <Cloud />}</span><div><strong>{item.key.split('/').pop()}</strong><small>{item.key} · {formatBytes(item.size)}</small></div></button>)}</div>}
+      {objects.isError ? <div className="picker-message">No se pudo consultar S3. Verifica las credenciales y el bucket.</div> : objects.isLoading ? <div className="picker-message">Consultando bucket…</div> : <div className="object-list">{(listed ?? []).map(item => <button type="button" key={item.key} className={s3Key === item.key ? 'selected' : ''} onClick={() => setS3Key(item.key)}><span>{s3Key === item.key ? <Check /> : <Cloud />}</span><div><strong>{item.key.split('/').pop()}</strong><small>{item.key} · {formatBytes(item.size)}</small></div></button>)}</div>}
     </div>{error && <div className="form-error">{error}</div>}<div className="form-actions"><button type="button" onClick={onDone}>Cancelar</button><button className="primary-button" disabled={!s3Key || create.isPending}>Guardar lección</button></div>
   </form>
 }
