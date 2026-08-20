@@ -32,8 +32,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   const logout = async () => {
-    await api('/auth/logout', { method: 'POST' })
-    queryClient.clear()
+    try {
+      await api('/auth/logout', { method: 'POST' })
+    } catch (err) {
+      // Log but proceed to clear local session to avoid leaving UI stuck
+      // eslint-disable-next-line no-console
+      console.error('Logout request failed', err)
+    } finally {
+      queryClient.clear()
+    }
   }
 
   const unauthenticated = session.error instanceof ApiError && session.error.status === 401

@@ -39,8 +39,14 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [mobileOpen])
 
   const doLogout = async () => {
-    await logout()
-    navigate('/login')
+    try {
+      await logout()
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Logout failed', err)
+    } finally {
+      navigate('/login')
+    }
   }
   return (
     <div className="app-shell">
