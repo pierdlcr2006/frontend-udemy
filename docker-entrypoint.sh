@@ -1,12 +1,14 @@
 #!/bin/sh
 set -e
 
-# Ensure a default if not provided
+# Default backend host if not provided
 : ${VITE_BACKEND_HOST:=http://backend:3000}
 export VITE_BACKEND_HOST
 
-if [ -f /etc/nginx/conf.d/default.conf.template ]; then
-  envsubst '${VITE_BACKEND_HOST}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
-fi
+# Write runtime config for the SPA
+cat > /app/dist/config.json <<EOF
+{ "backend": "${VITE_BACKEND_HOST}" }
+EOF
 
-exec nginx -g 'daemon off;'
+# Start a simple static server
+exec serve -s /app/dist -l 80
