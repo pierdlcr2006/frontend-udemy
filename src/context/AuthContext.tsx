@@ -40,8 +40,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       console.error('Logout request failed', err)
     } finally {
       // Clear session cache and refetch 'session' to ensure protected routes update
-      queryClient.removeQueries(['session'])
-      queryClient.invalidateQueries(['session'])
+      queryClient.removeQueries({ queryKey: ['session'] })
+      queryClient.invalidateQueries({ queryKey: ['session'] })
     }
   }
 
