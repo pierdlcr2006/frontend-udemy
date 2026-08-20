@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookCopy, Check, Cloud, Eye, EyeOff, FileVideo, ImagePlus, Plus, Search, Trash2, Upload, UserPlus } from 'lucide-react'
+import { ArrowLeft, BookCopy, Check, Cloud, Eye, EyeOff, FileVideo, ImagePlus, Plus, Search, Trash2, Upload, UserPlus } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { uploadToSignedUrl } from '../api/upload'
 import { AdminDashboard } from '../components/AdminDashboard'
@@ -22,75 +23,72 @@ export function AdminDashboardPage() {
 export function AdminCoursesPage() {
   const queryClient = useQueryClient()
   const { pushToast } = useToast()
-  const [coursesOpen, setCoursesOpen] = useState(true)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const navigate = useNavigate()
   const [showCourseForm, setShowCourseForm] = useState(false)
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null)
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null)
   const courses = useQuery({ queryKey: ['admin-courses'], queryFn: () => api<Course[]>('/admin/courses') })
-  const selected = courses.data?.find(course => course.id === selectedId) ?? courses.data?.[0]
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-courses'] })
+  const deleteCourse = useMutation({ mutationFn: (id: string) => api(`/admin/courses/${id}`, { method: 'DELETE' }), onSuccess: () => { refresh(); pushToast({ title: 'Curso eliminado', tone: 'danger', message: 'El curso y su contenido fueron retirados.' }) } })
+
+  return (
+    <>
+      <header className="page-header admin-page-header"><div><span className="eyebrow">Gestión académica</span><h1>Cursos</h1><p>Administra tu catálogo desde una vista clara. Abre un curso para editar su información o construir el contenido.</p></div><button className="primary-button page-primary-action" onClick={() => setShowCourseForm(true)}><Plus size={18} /> Nuevo curso</button></header>
+      {courses.isLoading ? <div className="course-catalog-loading"><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div> : courses.data?.length ? <section className="course-catalog-grid" aria-label="Catálogo de cursos">
+        {courses.data.map(course => <article className="catalog-course-card" key={course.id}>
+          <button type="button" className="catalog-course-main" onClick={() => navigate('/admin/courses/' + course.id)}>
+            <div className="catalog-course-cover" style={course.coverUrl ? { backgroundImage: 'linear-gradient(135deg, rgba(16, 27, 57, .12), rgba(16, 27, 57, .7)), url("' + course.coverUrl + '")' } : undefined}><BookCopy size={24} /><span>{course.published ? 'Publicado' : 'Borrador'}</span></div>
+            <div className="catalog-course-copy"><span className={course.published ? 'state-badge published' : 'state-badge'}>{course.published ? 'Publicado' : 'Borrador'}</span><h2>{course.title}</h2><p>{course.description || 'Sin descripción todavía.'}</p><small>{course.sections.length} secciones · {course.sections.reduce((sum, section) => sum + section.lessons.length, 0)} videos</small></div>
+          </button>
+          <div className="catalog-course-actions"><button type="button" className="secondary-button" onClick={() => navigate('/admin/courses/' + course.id)}>Abrir editor</button><button type="button" className="danger-text-button" onClick={() => setCourseToDelete(course)}>Eliminar</button></div>
+        </article>)}
+      </section> : <div className="empty-state course-catalog-empty"><BookCopy size={36} /><strong>Aún no tienes cursos</strong><span>Crea el primero y después organiza sus secciones y videos.</span><button onClick={() => setShowCourseForm(true)}>Crear curso</button></div>}
+      {showCourseForm && <CreateCourseForm onClose={() => setShowCourseForm(false)} onCreated={(course) => { setShowCourseForm(false); refresh(); pushToast({ title: 'Curso creado', tone: 'success', message: course.title }); navigate('/admin/courses/' + course.id) }} />}
+      <ConfirmDialog open={Boolean(courseToDelete)} title="Eliminar curso" description={courseToDelete ? 'Se eliminará "' + courseToDelete.title + '" y todo su progreso. Esta acción no se puede deshacer.' : undefined} confirmLabel="Eliminar curso" variant="danger" onConfirm={() => { if (!courseToDelete) return; deleteCourse.mutate(courseToDelete.id); setCourseToDelete(null) }} onCancel={() => setCourseToDelete(null)} />
+    </>
+  )
+}
+
+export function AdminCourseEditorPage() {
+  const { courseId } = useParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { pushToast } = useToast()
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+  const courses = useQuery({ queryKey: ['admin-courses'], queryFn: () => api<Course[]>('/admin/courses') })
+  const course = courses.data?.find(item => item.id === courseId)
+  const contentView = location.pathname.endsWith('/content')
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-courses'] })
   const updateCourse = useMutation({ mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api(`/admin/courses/${id}`, { method: 'PATCH', body: JSON.stringify(body) }), onSuccess: (_, variables) => {
     setEditingCourse(null)
     refresh()
-    if (Object.prototype.hasOwnProperty.call(variables.body, 'published')) {
-      pushToast({ title: variables.body.published ? 'Curso publicado' : 'Curso oculto', tone: 'success' })
-    } else {
-      pushToast({ title: 'Curso actualizado', tone: 'success' })
-    }
+    pushToast({ title: Object.prototype.hasOwnProperty.call(variables.body, 'published') ? (variables.body.published ? 'Curso publicado' : 'Curso oculto') : 'Curso actualizado', tone: 'success' })
   } })
-  const deleteCourse = useMutation({ mutationFn: (id: string) => api(`/admin/courses/${id}`, { method: 'DELETE' }), onSuccess: () => { setSelectedId(null); refresh(); pushToast({ title: 'Curso eliminado', tone: 'danger', message: 'El curso y su contenido fueron retirados.' }) } })
 
-  return (
-    <>
-      <header className="page-header admin-page-header"><div><span className="eyebrow">Gestión académica</span><h1>Cursos</h1><p>Diseña el temario, publica contenido y agrega videos desde tu equipo o S3.</p></div><button className="primary-button page-primary-action" onClick={() => setShowCourseForm(true)}><Plus size={18} /> Nuevo curso</button></header>
-      <div className="admin-grid">
-      <section className="admin-list-panel">
-        <div className="panel-title">
-          <div>
-            <h2>Tu catálogo</h2>
-            <span>{courses.data?.length ?? 0} cursos en total</span>
-          </div>
-          <div className="panel-actions">
-            <button className="icon-button" aria-label={coursesOpen ? 'Cerrar catálogo' : 'Abrir catálogo'} onClick={() => setCoursesOpen(o => !o)}>{coursesOpen ? '▾' : '▸'}</button>
-            <button className="icon-button primary" aria-label="Crear curso" onClick={() => setShowCourseForm(true)}><Plus /></button>
-          </div>
-        </div>
-        {coursesOpen && (
-          courses.isLoading ? <div className="panel-loading">Cargando…</div> : courses.data?.map(course => (
-            <button key={course.id} className={`admin-course-row ${selected?.id === course.id ? 'active' : ''}`} onClick={() => setSelectedId(course.id)}>
-              <span className="course-mini-icon"><BookCopy /></span><span><strong>{course.title}</strong><small>{course.sections.reduce((sum, section) => sum + section.lessons.length, 0)} lecciones</small></span>
-              <i className={course.published ? 'status-dot published' : 'status-dot'} title={course.published ? 'Publicado' : 'Borrador'} />
-            </button>
-          ))
-        )}
-      </section>
-      <section className="admin-detail-panel">
-        {showCourseForm && <CreateCourseForm onClose={() => setShowCourseForm(false)} onCreated={(course) => { setShowCourseForm(false); setSelectedId(course.id); refresh(); pushToast({ title: 'Curso creado', tone: 'success', message: course.title }) }} />}
-        {editingCourse && (
-          <EditCourseModal
-            course={editingCourse}
-            onClose={() => setEditingCourse(null)}
-            onSave={(body) => updateCourse.mutate({ id: editingCourse.id, body })}
-            isSaving={updateCourse.isPending}
-          />
-        )}
-        {selected ? <>
-          <div className="detail-heading">
-            <div><span className={selected.published ? 'state-badge published' : 'state-badge'}>{selected.published ? 'Publicado' : 'Borrador'}</span><h2>{selected.title}</h2><p>{selected.description || 'Sin descripción todavía.'}</p></div>
-            <div className="heading-actions">
-              <button type="button" className="secondary-button" onClick={() => setEditingCourse(selected)}><Plus size={16} /> Editar curso</button>
-              <button className="secondary-button" onClick={() => updateCourse.mutate({ id: selected.id, body: { published: !selected.published } })}>{selected.published ? <><EyeOff /> Ocultar</> : <><Eye /> Publicar</>}</button>
-              <button className="danger-icon" title="Eliminar curso" onClick={() => setCourseToDelete(selected)}><Trash2 /></button>
-            </div>
-          </div>
-          <CourseBuilder course={selected} refresh={refresh} />
-        </> : <div className="empty-state compact"><BookCopy /><strong>Crea tu primer curso</strong><span>Después podrás agregar secciones y videos de S3.</span></div>}
-      </section>
-      </div>
-      <ConfirmDialog open={Boolean(courseToDelete)} title="Eliminar curso" description={courseToDelete ? 'Se eliminará "' + courseToDelete.title + '" y todo su progreso. Esta acción no se puede deshacer.' : undefined} confirmLabel="Eliminar curso" variant="danger" onConfirm={() => { if (!courseToDelete) return; deleteCourse.mutate(courseToDelete.id); setCourseToDelete(null) }} onCancel={() => setCourseToDelete(null)} />
-    </>
-  )
+  if (courses.isLoading) return <div className="course-editor-loading"><div className="loader" />Cargando editor…</div>
+  if (!course) return <div className="empty-state course-editor-empty"><strong>No encontramos ese curso</strong><span>Puede haber sido eliminado o no tienes acceso.</span><button onClick={() => navigate('/admin/courses')}>Volver a cursos</button></div>
+
+  return <>
+    <header className="course-editor-header">
+      <button type="button" className="back-link" onClick={() => navigate('/admin/courses')}><ArrowLeft size={17} /> Todos los cursos</button>
+      <div className="course-editor-heading"><div><span className={course.published ? 'state-badge published' : 'state-badge'}>{course.published ? 'Publicado' : 'Borrador'}</span><h1>{course.title}</h1><p>{course.description || 'Define la información y después construye el contenido del curso.'}</p></div><div className="heading-actions"><button type="button" className="secondary-button" onClick={() => setEditingCourse(course)}><ImagePlus size={16} /> Editar información</button><button type="button" className="secondary-button" onClick={() => updateCourse.mutate({ id: course.id, body: { published: !course.published } })}>{course.published ? <><EyeOff /> Ocultar</> : <><Eye /> Publicar</>}</button></div></div>
+    </header>
+    <div className="course-editor-layout">
+      <aside className="course-editor-aside"><div className="editor-cover" style={course.coverUrl ? { backgroundImage: 'linear-gradient(135deg, rgba(16, 27, 57, .12), rgba(16, 27, 57, .7)), url("' + course.coverUrl + '")' } : undefined}><BookCopy size={28} /><span>{course.coverUrl ? 'Portada activa' : 'Sin portada'}</span></div><div className="editor-summary"><strong>Contenido del curso</strong><span>{course.sections.length} secciones</span><span>{course.sections.reduce((sum, section) => sum + section.lessons.length, 0)} videos</span></div><nav className="editor-step-list" aria-label="Secciones del editor"><button type="button" className={!contentView ? 'active' : ''} onClick={() => navigate('/admin/courses/' + course.id)}><b>1</b> Información</button><button type="button" className={contentView ? 'active' : ''} onClick={() => navigate('/admin/courses/' + course.id + '/content')}><b>2</b> Secciones y videos</button></nav></aside>
+      <main className="course-editor-content">{contentView ? <CourseBuilder course={course} refresh={refresh} /> : <CourseInformationView course={course} onOpenContent={() => navigate('/admin/courses/' + course.id + '/content')} />}</main>
+    </div>
+    {editingCourse && <EditCourseModal course={editingCourse} onClose={() => setEditingCourse(null)} onSave={(body) => updateCourse.mutateAsync({ id: editingCourse.id, body })} isSaving={updateCourse.isPending} />}
+  </>
+}
+
+function CourseInformationView({ course, onOpenContent }: { course: Course; onOpenContent: () => void }) {
+  const totalLessons = course.sections.reduce((sum, section) => sum + section.lessons.length, 0)
+  return <section className="course-information-view">
+    <div className="information-kicker"><span className="eyebrow">Vista de información</span><span className="state-badge">Paso 1 de 2</span></div>
+    <div className="information-intro"><div><h2>La identidad de tu curso</h2><p>Revisa el título, la descripción y la portada antes de construir el recorrido de aprendizaje.</p></div><button className="primary-button" type="button" onClick={onOpenContent}><FileVideo size={17} /> Gestionar contenido</button></div>
+    <div className="information-stats"><div><strong>{course.sections.length}</strong><span>Secciones</span></div><div><strong>{totalLessons}</strong><span>Videos</span></div><div><strong>{course.published ? 'Sí' : 'No'}</strong><span>Publicado</span></div></div>
+    <div className="information-note"><BookCopy size={20} /><div><strong>Continúa con el temario</strong><span>En la siguiente vista puedes crear módulos, ordenar lecciones y subir varios videos sin interrumpir tu navegación.</span></div><button type="button" onClick={onOpenContent}>Abrir contenido</button></div>
+  </section>
 }
 
 function CreateCourseForm({ onClose, onCreated }: { onClose: () => void; onCreated: (course: Course) => void }) {
@@ -162,16 +160,68 @@ function EditCourseModal({
 }: {
   course: Course
   onClose: () => void
-  onSave: (body: { title: string; description: string }) => void
+  onSave: (body: Record<string, unknown>) => Promise<unknown>
   isSaving: boolean
 }) {
   const [title, setTitle] = useState(course.title)
   const [description, setDescription] = useState(course.description ?? '')
+  const [cover, setCover] = useState<File | null>(null)
+  const [coverProgress, setCoverProgress] = useState(0)
+  const [isUploading, setIsUploading] = useState(false)
+  const [error, setError] = useState('')
+  const coverPreview = useMemo(() => cover ? URL.createObjectURL(cover) : course.coverUrl ?? null, [cover, course.coverUrl])
+
+  useEffect(() => () => {
+    if (cover && coverPreview) URL.revokeObjectURL(coverPreview)
+  }, [cover, coverPreview])
+
+  const selectCover = (file: File | undefined) => {
+    if (!file) return
+    const validType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name)
+    if (!validType) { setError('Selecciona una imagen JPG, PNG o WEBP.'); return }
+    if (file.size > 10 * 1024 * 1024) { setError('La portada puede pesar como máximo 10 MB.'); return }
+    setError('')
+    setCover(file)
+  }
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    setError('')
+    setIsUploading(Boolean(cover))
+    try {
+      let coverKey: string | undefined
+      if (cover) {
+        setCoverProgress(1)
+        const lowerName = cover.name.toLowerCase()
+        const fallbackType = lowerName.endsWith('.png') ? 'image/png' : lowerName.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
+        const contentType = ['image/jpeg', 'image/png', 'image/webp'].includes(cover.type) ? cover.type : fallbackType
+        const signed = await api<{ key: string; url: string; contentType: string }>('/admin/s3/course-covers', {
+          method: 'POST',
+          body: JSON.stringify({ fileName: cover.name, contentType, fileSize: cover.size }),
+        })
+        await uploadToSignedUrl(cover, signed.url, signed.contentType, setCoverProgress)
+        coverKey = signed.key
+      }
+      await onSave({ title: title.trim(), description: description.trim(), ...(coverKey ? { coverKey } : {}) })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'No se pudieron guardar los cambios')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   return <Modal title="Editar curso" onClose={onClose}>
-    <form className="modal-form" onSubmit={(event) => { event.preventDefault(); onSave({ title, description }) }}>
-      <label>Título<input value={title} onChange={e => setTitle(e.target.value)} required minLength={2} autoFocus /></label>
-      <label>Descripción<textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} /></label>
-      <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={isSaving}>Guardar cambios</button></div>
+    <form className="modal-form course-create-form" onSubmit={submit}>
+      <div className="form-intro"><strong>Actualiza la identidad del curso</strong><span>Los cambios se reflejarán en la biblioteca cuando guardes.</span></div>
+      <label>Título del curso<input value={title} onChange={e => setTitle(e.target.value)} required minLength={2} autoFocus /></label>
+      <label>Descripción<textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} /></label>
+      <div className="cover-picker">
+        <div className="cover-preview">{coverPreview ? <img src={coverPreview} alt="Vista previa de la portada" /> : <ImagePlus size={28} />}</div>
+        <div className="cover-picker-copy"><strong>Portada del curso <span>{course.coverUrl ? 'Actualizable' : 'Opcional'}</span></strong><small>JPG, PNG o WEBP. Máximo 10 MB.</small><label className="file-input-button"><ImagePlus size={15} /> {cover ? 'Cambiar imagen' : course.coverUrl ? 'Reemplazar portada' : 'Seleccionar imagen'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => selectCover(event.target.files?.[0])} /></label>{cover && <small className="selected-file">{cover.name} · {formatBytes(cover.size)}</small>}</div>
+      </div>
+      {cover && <div className="cover-upload-progress"><span>{isUploading ? 'Subiendo portada… ' + coverProgress + '%' : 'La nueva portada se guardará al confirmar'}</span><i><b style={{ width: coverProgress + '%' }} /></i></div>}
+      {error && <div className="form-error">{error}</div>}
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={isSaving || isUploading}>Cancelar</button><button className="primary-button" disabled={isSaving || isUploading || title.trim().length < 2}>{isUploading ? 'Subiendo portada…' : isSaving ? 'Guardando…' : 'Guardar cambios'}</button></div>
     </form>
   </Modal>
 }
@@ -232,7 +282,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
         <span>{String(index + 1).padStart(2, '0')}</span>
         <div className="section-title"><strong>{section.title}</strong><small>{section.lessons.length} {section.lessons.length === 1 ? "video" : "videos"}</small></div>
         <div className="section-actions">
-          <button type="button" className="section-toggle" onClick={() => setOpenSections(prev => ({ ...prev, [section.id]: !prev[section.id] }))}>{isOpen ? '▾' : '▸'}</button>
+          <button type="button" className="section-toggle" aria-expanded={isOpen} aria-label={isOpen ? "Contraer sección" : "Expandir sección"} onClick={() => setOpenSections(prev => ({ ...prev, [section.id]: !prev[section.id] }))}>{isOpen ? '▾' : '▸'}</button>
           <button type="button" onClick={() => setEditingSection({ id: section.id, title: section.title })}>Editar</button>
           <button type="button" onClick={() => setSectionToDelete({ id: section.id, title: section.title })}><Trash2 size={16} /></button>
         </div>

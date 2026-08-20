@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { useAuth } from './context/AuthContext'
-import { AdminCoursesPage, AdminDashboardPage, AdminUsersPage } from './pages/AdminPage'
+import { AdminCourseEditorPage, AdminCoursesPage, AdminDashboardPage, AdminUsersPage } from './pages/AdminPage'
 import { AdminLayout } from './pages/AdminLayout'
 import { LibraryPage } from './pages/LibraryPage'
 import { LoginPage } from './pages/LoginPage'
@@ -28,6 +28,8 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboardPage />} />
           <Route path="courses" element={<AdminCoursesPage />} />
+          <Route path="courses/:courseId/content" element={<AdminCourseEditorPage />} />
+          <Route path="courses/:courseId" element={<AdminCourseEditorPage />} />
           <Route path="users" element={<AdminUsersPage />} />
         </Route>
       </Route>
