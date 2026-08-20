@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AdminCoursesPage, AdminDashboardPage, AdminUsersPage } from './pages/AdminPage'
 import { AdminLayout } from './pages/AdminLayout'
@@ -11,9 +11,10 @@ const CoursePage = lazy(() => import('./pages/CoursePage').then(module => ({ def
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<LibraryPage />} />
+        <Route path="/library" element={<LibraryPage />} />
         <Route path="/curso/:courseId/:lessonId?" element={<Suspense fallback={<div className="splash dark"><div className="loader" />Preparando reproductor…</div>}><CoursePage /></Suspense>} />
       </Route>
       <Route element={<ProtectedRoute admin />}>

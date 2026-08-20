@@ -11,7 +11,10 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const host = (import.meta.env.VITE_BACKEND_HOST as string | undefined) ?? ''
+  const prefix = host ? host.replace(/\/$/, '') : ''
+  const url = prefix ? `${prefix}/api${path}` : `/api${path}`
+  const response = await fetch(url, {
     credentials: 'include',
     ...options,
     headers: {

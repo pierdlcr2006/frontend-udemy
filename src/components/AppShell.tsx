@@ -52,7 +52,7 @@ export function AppShell({ children }: PropsWithChildren) {
         <div className="sidebar-brand-row"><Brand /><button ref={closeButtonRef} type="button" aria-label="Cerrar navegación" onClick={() => setMobileOpen(false)}><X /></button></div>
         <nav aria-label="Navegación principal">
           <span className="nav-group-label">Aprender</span>
-          <NavLink to="/" end onClick={() => setMobileOpen(false)}><BookOpen size={19} /><span>Mi aprendizaje</span></NavLink>
+          <NavLink to="/library" end onClick={() => setMobileOpen(false)}><BookOpen size={19} /><span>Mi aprendizaje</span></NavLink>
           {user?.role === 'ADMIN' && <>
             <span className="nav-group-label admin-group">Administración</span>
             <NavLink to="/admin" end onClick={() => setMobileOpen(false)}><LayoutDashboard size={19} /><span>Resumen</span></NavLink>

@@ -41,11 +41,11 @@ export function CoursePage() {
   }, [course.data, courseId, current, lessons, openLesson])
 
   if (course.isLoading) return <div className="splash dark"><div className="loader" />Cargando curso…</div>
-  if (!course.data || !current) return <div className="splash"><strong>Este curso todavía no tiene lecciones.</strong><Link to="/">Volver a la biblioteca</Link></div>
+  if (!course.data || !current) return <div className="splash"><strong>Este curso todavía no tiene lecciones.</strong><Link to="/library">Volver a la biblioteca</Link></div>
   return (
     <div className="player-page">
       <header className="player-header">
-        <Link to="/"><ChevronLeft /> Biblioteca</Link><span className="header-divider" /><strong>{course.data.title}</strong>
+        <Link to="/library"><ChevronLeft /> Biblioteca</Link><span className="header-divider" /><strong>{course.data.title}</strong>
         <div className="header-progress"><span>{course.data.stats.percent}% completado</span><div className="mini-track"><i style={{ width: `${course.data.stats.percent}%` }} /></div></div>
         <button className="mobile-menu" onClick={() => setSidebarOpen(!sidebarOpen)}><Menu /></button>
       </header>
