@@ -6,6 +6,7 @@ COPY . .
 RUN npm run build
 
 FROM nginx:1.27-alpine
+RUN apk add --no-cache gettext
 COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
