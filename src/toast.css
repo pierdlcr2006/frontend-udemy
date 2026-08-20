@@ -1,0 +1,13 @@
+.toast-viewport{position:fixed;top:20px;right:20px;z-index:80;display:grid;gap:10px;width:min(360px,calc(100vw - 40px));pointer-events:none}
+.toast-card{pointer-events:auto;display:grid;grid-template-columns:34px minmax(0,1fr) 24px;align-items:flex-start;gap:10px;padding:14px 14px 14px 12px;border-radius:16px;border:1px solid transparent;box-shadow:0 16px 40px #11101a24;background:#fff;animation:toast-in .24s ease-out, toast-out .28s ease-in 2.72s forwards}
+.toast-card.success{border-color:#ccebdc;background:#effaf4;color:#216347}
+.toast-card.danger{border-color:#f5c8d0;background:#fff2f4;color:#9d3146}
+.toast-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:12px;background:#fff;color:inherit}
+.toast-copy{display:flex;flex-direction:column;gap:4px;min-width:0;padding-top:1px}
+.toast-copy strong{font-family:'Manrope';font-size:14px;line-height:1.15}
+.toast-copy span{color:inherit;opacity:.82;font-size:12px;line-height:1.4}
+.toast-close{width:24px;height:24px;display:grid;place-items:center;border:0;border-radius:999px;color:inherit;background:transparent;opacity:.7}
+.toast-close:hover{opacity:1;background:#ffffff8a}
+@keyframes toast-in{from{opacity:0;transform:translate3d(28px,-10px,0) scale(.98)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+@keyframes toast-out{to{opacity:0;transform:translate3d(28px,-10px,0) scale(.98)}}
+@media(max-width:760px){.toast-viewport{top:auto;right:14px;bottom:14px;left:14px;width:auto}}
