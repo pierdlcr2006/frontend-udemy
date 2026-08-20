@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: .
+    env_file: ../.env
+    environment:
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+      VITE_BACKEND_HOST: ${VITE_BACKEND_HOST:-http://host.docker.internal:3000}
+    ports:
+      - "8080:80"
+    restart: unless-stopped
