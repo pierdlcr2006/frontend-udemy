@@ -39,7 +39,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       // eslint-disable-next-line no-console
       console.error('Logout request failed', err)
     } finally {
-      queryClient.clear()
+      // Clear session cache and refetch 'session' to ensure protected routes update
+      queryClient.removeQueries(['session'])
+      queryClient.invalidateQueries(['session'])
     }
   }
 
