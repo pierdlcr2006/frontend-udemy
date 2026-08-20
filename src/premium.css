@@ -278,3 +278,43 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @keyframes dialog-fade { from { opacity:0; } to { opacity:1; } }
 @keyframes dialog-rise { from { opacity:0; transform:translateY(8px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
 @media (max-width:520px) { .confirm-backdrop { padding:14px; align-items:end; } .confirm-card { padding:21px; border-radius:18px 18px 14px 14px; } .confirm-desc { padding-left:0; } .confirm-actions { display:grid; grid-template-columns:1fr 1fr; } .confirm-actions button { width:100%; } }
+
+.course-cover.has-image { background-position:center; background-size:cover; }
+.course-cover.has-image::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,rgba(11,18,43,.04),rgba(11,18,43,.34)); pointer-events:none; }
+.course-cover.has-image > * { position:relative; z-index:1; }
+.course-cover { position:relative; overflow:hidden; }
+
+.form-intro { display:grid; gap:4px; padding:12px 14px; border:1px solid #e9e6fb; border-radius:12px; background:#faf9ff; color:#5d6780; font-size:12px; line-height:1.5; }
+.form-intro strong { color:#252d49; font-size:14px; }
+.modal-form label { display:grid; gap:7px; color:#3c4662; font-size:12px; font-weight:700; }
+.modal-form label small { color:#8a92a6; font-size:10px; font-weight:500; }
+.course-create-form { max-width:600px; }
+.cover-picker { display:flex; align-items:center; gap:14px; padding:12px; border:1px dashed #cfd2e5; border-radius:14px; background:#fbfbfe; }
+.cover-preview { display:grid; place-items:center; width:128px; height:78px; flex:none; overflow:hidden; border-radius:10px; color:#8075d6; background:linear-gradient(145deg,#eef0ff,#e1e5f8); }
+.cover-preview img { width:100%; height:100%; object-fit:cover; }
+.cover-picker-copy { display:grid; gap:4px; min-width:0; }
+.cover-picker-copy strong { color:#27304e; font-size:13px; }
+.cover-picker-copy strong span { margin-left:5px; color:#8a92a6; font-size:10px; font-weight:600; }
+.cover-picker-copy small { color:#7e879c; font-size:10px; line-height:1.45; }
+.file-input-button { display:inline-flex !important; width:max-content; align-items:center; gap:6px; margin-top:5px; padding:8px 10px; border:1px solid #d7d2f6; border-radius:9px; color:#5f4ecb !important; background:#fff; cursor:pointer; font-size:11px !important; }
+.file-input-button input { display:none; }
+.selected-file { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cover-upload-progress { display:grid; gap:6px; color:#606a82; font-size:11px; }
+.cover-upload-progress i { display:block; height:5px; overflow:hidden; border-radius:99px; background:#e7e8f1; }
+.cover-upload-progress b { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,#6e5be7,#39b891); transition:width .2s ease; }
+
+.builder-title { align-items:flex-start !important; }
+.builder-title > div { display:grid; gap:4px; }
+.builder-counter { flex:none; padding:7px 10px; border:1px solid #e4e1fa; border-radius:999px; color:#6654d0; background:#faf9ff; font-size:10px; }
+.section-title { display:grid; gap:3px; }
+.section-title small { color:#8a92a6; font-size:10px; font-weight:500; }
+.section-empty { display:grid; justify-items:center; gap:5px; padding:24px 16px; color:#8790a5; text-align:center; }
+.section-empty svg { color:#aaa2e6; }
+.section-empty span { color:#5b657d; font-size:12px; font-weight:700; }
+.section-empty small { font-size:10px; }
+.add-section { align-items:center !important; gap:12px !important; padding:14px !important; border:1px solid #e5e7f0 !important; border-radius:13px !important; background:#fafbfe !important; }
+.add-section > div { display:grid; gap:3px; margin-right:auto; }
+.add-section > div strong { color:#35405d; font-size:12px; }
+.add-section > div small { color:#8992a7; font-size:10px; }
+.add-section input { min-width:210px; }
+@media (max-width:640px) { .cover-picker { align-items:flex-start; flex-direction:column; } .cover-preview { width:100%; height:130px; } .builder-counter { display:none; } .add-section { align-items:stretch !important; flex-direction:column; } .add-section input, .add-section button { width:100%; } }

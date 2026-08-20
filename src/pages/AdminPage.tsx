@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookCopy, Check, Cloud, Eye, EyeOff, FileVideo, Plus, Search, Trash2, Upload, UserPlus } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { BookCopy, Check, Cloud, Eye, EyeOff, FileVideo, ImagePlus, Plus, Search, Trash2, Upload, UserPlus } from 'lucide-react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { api, ApiError } from '../api/client'
+import { uploadToSignedUrl } from '../api/upload'
 import { AdminDashboard } from '../components/AdminDashboard'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useUploads } from '../context/UploadContext'
@@ -93,11 +94,64 @@ export function AdminCoursesPage() {
 }
 
 function CreateCourseForm({ onClose, onCreated }: { onClose: () => void; onCreated: (course: Course) => void }) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [error, setError] = useState('')
-  const mutation = useMutation({ mutationFn: () => api<Course>('/admin/courses', { method: 'POST', body: JSON.stringify({ title, description }) }), onSuccess: onCreated, onError: (err) => setError(err instanceof ApiError ? err.message : 'No se pudo crear') })
-  return <form className="inline-create" onSubmit={(event) => { event.preventDefault(); mutation.mutate() }}><div><strong>Nuevo curso</strong><button type="button" onClick={onClose}>Cerrar</button></div><label>Título<input value={title} onChange={e => setTitle(e.target.value)} required minLength={2} autoFocus /></label><label>Descripción<textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} /></label>{error && <div className="form-error">{error}</div>}<button className="primary-button" disabled={mutation.isPending}>Crear curso</button></form>
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [cover, setCover] = useState<File | null>(null)
+  const [coverProgress, setCoverProgress] = useState(0)
+  const [error, setError] = useState("")
+  const coverPreview = useMemo(() => cover ? URL.createObjectURL(cover) : null, [cover])
+
+  useEffect(() => () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview)
+  }, [coverPreview])
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      let coverKey: string | undefined
+      if (cover) {
+        setCoverProgress(1)
+        const lowerName = cover.name.toLowerCase()
+        const fallbackType = lowerName.endsWith(".png") ? "image/png" : lowerName.endsWith(".webp") ? "image/webp" : "image/jpeg"
+        const contentType = ["image/jpeg", "image/png", "image/webp"].includes(cover.type) ? cover.type : fallbackType
+        const signed = await api<{ key: string; url: string; contentType: string }>("/admin/s3/course-covers", {
+          method: "POST",
+          body: JSON.stringify({ fileName: cover.name, contentType, fileSize: cover.size }),
+        })
+        await uploadToSignedUrl(cover, signed.url, signed.contentType, setCoverProgress)
+        coverKey = signed.key
+      }
+      return api<Course>("/admin/courses", {
+        method: "POST",
+        body: JSON.stringify({ title: title.trim(), description: description.trim(), coverKey }),
+      })
+    },
+    onSuccess: onCreated,
+    onError: (err) => setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "No se pudo crear el curso"),
+  })
+
+  const selectCover = (file: File | undefined) => {
+    if (!file) return
+    const validType = ["image/jpeg", "image/png", "image/webp"].includes(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name)
+    if (!validType) { setError("Selecciona una imagen JPG, PNG o WEBP."); return }
+    if (file.size > 10 * 1024 * 1024) { setError("La portada puede pesar como máximo 10 MB."); return }
+    setError("")
+    setCover(file)
+  }
+
+  return <Modal title="Crear curso" onClose={onClose}>
+    <form className="modal-form course-create-form" onSubmit={(event) => { event.preventDefault(); setError(""); mutation.mutate() }}>
+      <div className="form-intro"><strong>Construye una nueva ruta</strong><span>Primero define la identidad del curso. Después podrás añadir secciones y videos sin perder tu avance.</span></div>
+      <label>Título del curso<input value={title} onChange={event => setTitle(event.target.value)} placeholder="Ej. Fundamentos de React" required minLength={2} autoFocus /><small>Usa un nombre claro que explique el resultado de aprendizaje.</small></label>
+      <label>Descripción<textarea value={description} onChange={event => setDescription(event.target.value)} placeholder="¿Qué aprenderá el estudiante?" rows={4} /><small>Puedes editarla más adelante antes de publicar.</small></label>
+      <div className="cover-picker">
+        <div className="cover-preview">{coverPreview ? <img src={coverPreview} alt="Vista previa de la portada" /> : <ImagePlus size={28} />}</div>
+        <div className="cover-picker-copy"><strong>Portada del curso <span>Opcional</span></strong><small>JPG, PNG o WEBP. Máximo 10 MB. Se mostrará en la biblioteca.</small><label className="file-input-button"><ImagePlus size={15} /> {cover ? "Cambiar imagen" : "Seleccionar imagen"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => selectCover(event.target.files?.[0])} /></label>{cover && <small className="selected-file">{cover.name} · {formatBytes(cover.size)}</small>}</div>
+      </div>
+      {mutation.isPending && cover && <div className="cover-upload-progress"><span>Subiendo portada… {coverProgress}%</span><i><b style={{ width: coverProgress + "%" }} /></i></div>}
+      {error && <div className="form-error">{error}</div>}
+      <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={mutation.isPending || title.trim().length < 2}>{mutation.isPending ? "Creando curso…" : "Crear curso"}</button></div>
+    </form>
+  </Modal>
 }
 
 function EditCourseModal({
@@ -131,7 +185,16 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
   const [editingLesson, setEditingLesson] = useState<{ id: string; title: string; s3Key?: string } | null>(null)
   const [sectionToDelete, setSectionToDelete] = useState<{ id: string; title: string } | null>(null)
   const [lessonToDelete, setLessonToDelete] = useState<{ id: string; title: string } | null>(null)
-  const createSection = useMutation({ mutationFn: () => api(`/admin/courses/${course.id}/sections`, { method: 'POST', body: JSON.stringify({ title: sectionTitle, sortOrder: course.sections.length }) }), onSuccess: () => { setSectionTitle(''); refresh(); pushToast({ title: 'Sección creada', tone: 'success', message: sectionTitle }) } })
+  const createSection = useMutation({
+    mutationFn: () => api<{ id: string }>("/admin/courses/" + course.id + "/sections", { method: "POST", body: JSON.stringify({ title: sectionTitle.trim(), sortOrder: course.sections.length }) }),
+    onSuccess: (created) => {
+      const createdTitle = sectionTitle.trim()
+      setSectionTitle("")
+      setOpenSections(previous => ({ ...previous, [created.id]: true }))
+      refresh()
+      pushToast({ title: "Sección creada", tone: "success", message: createdTitle })
+    },
+  })
   const removeSection = useMutation({ mutationFn: (id: string) => api(`/admin/sections/${id}`, { method: 'DELETE' }), onSuccess: () => { refresh(); pushToast({ title: 'Sección eliminada', tone: 'danger' }) } })
   const removeLesson = useMutation({ mutationFn: (id: string) => api(`/admin/lessons/${id}`, { method: 'DELETE' }), onSuccess: () => { refresh(); pushToast({ title: 'Video eliminado', tone: 'danger' }) } })
   const updateSection = useMutation({ mutationFn: ({ id, title }: { id: string; title: string }) => api(`/admin/sections/${id}`, { method: 'PATCH', body: JSON.stringify({ title }) }), onSuccess: (_, variables) => { setEditingSection(null); refresh(); pushToast({ title: 'Sección actualizada', tone: 'success', message: variables.title }) } })
@@ -142,7 +205,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
     return api(`/admin/lessons/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
   }, onSuccess: (_, variables) => { setEditingLesson(null); refresh(); pushToast({ title: 'Video actualizado', tone: 'success', message: variables.title ?? 'Cambios guardados' }) } })
   return <div className="course-builder">
-    <div className="builder-title"><h3>Estructura del curso</h3><span>Las lecciones se muestran en este orden.</span></div>
+    <div className="builder-title"><div><h3>Estructura del curso</h3><span>Organiza el contenido por módulos y agrega los videos en el orden de aprendizaje.</span></div><strong className="builder-counter">{course.sections.length} sección{course.sections.length === 1 ? "" : "es"} · {course.sections.reduce((total, section) => total + section.lessons.length, 0)} videos</strong></div>
     {editingSection && (
       <Modal title="Editar sección" onClose={() => setEditingSection(null)}>
         <form className="modal-form" onSubmit={(event) => { event.preventDefault(); updateSection.mutate({ id: editingSection.id, title: editingSection.title }) }}>
@@ -167,7 +230,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
       return <div className="section-block" key={section.id}>
       <div className="section-heading">
         <span>{String(index + 1).padStart(2, '0')}</span>
-        <div className="section-title"><strong>{section.title}</strong></div>
+        <div className="section-title"><strong>{section.title}</strong><small>{section.lessons.length} {section.lessons.length === 1 ? "video" : "videos"}</small></div>
         <div className="section-actions">
           <button type="button" className="section-toggle" onClick={() => setOpenSections(prev => ({ ...prev, [section.id]: !prev[section.id] }))}>{isOpen ? '▾' : '▸'}</button>
           <button type="button" onClick={() => setEditingSection({ id: section.id, title: section.title })}>Editar</button>
@@ -176,6 +239,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
       </div>
       {isOpen && (
         <>
+          {section.lessons.length === 0 && <div className="section-empty"><FileVideo size={20} /><span>Aún no hay videos en esta sección.</span><small>Agrega archivos MP4 o selecciona uno que ya esté en S3.</small></div>}
           {section.lessons.map((lesson, lessonIndex) => {
             return <div className="admin-lesson" key={lesson.id}>
               <span>{lessonIndex + 1}</span>
@@ -190,7 +254,7 @@ function CourseBuilder({ course, refresh }: { course: Course; refresh: () => voi
       )}
     </div>
     })}
-    <form className="add-section" onSubmit={(event) => { event.preventDefault(); createSection.mutate() }}><input value={sectionTitle} onChange={e => setSectionTitle(e.target.value)} placeholder="Nombre de la nueva sección" required minLength={2} /><button className="secondary-button"><Plus size={17} /> Agregar sección</button></form>
+    <form className="add-section" onSubmit={(event) => { event.preventDefault(); if (sectionTitle.trim().length >= 2) createSection.mutate() }}><div><strong>Nueva sección</strong><small>Un módulo agrupa videos relacionados.</small></div><input value={sectionTitle} onChange={e => setSectionTitle(e.target.value)} placeholder="Ej. Introducción y objetivos" required minLength={2} /><button className="secondary-button" disabled={createSection.isPending}><Plus size={17} /> {createSection.isPending ? "Creando…" : "Agregar sección"}</button></form>
   </div>
 }
 

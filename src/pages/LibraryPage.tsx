@@ -93,7 +93,9 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
   const resumeLesson = resumeLessonFor(course)
   const completed = isCompleted(course)
   return <article className={`course-card theme-${index % 4}`}>
-    <div className="course-cover"><span className="course-icon">{completed ? <CheckCircle2 /> : <BookOpen />}</span><span>{course.stats.totalLessons} lecciones</span></div>
+    <div className={course.coverUrl ? "course-cover has-image" : "course-cover"} style={course.coverUrl ? { backgroundImage: "linear-gradient(135deg, rgba(18, 27, 58, .18), rgba(18, 27, 58, .72)), url(\"" + course.coverUrl + "\")" } : undefined}>
+      <span className="course-icon">{completed ? <CheckCircle2 /> : <BookOpen />}</span><span>{course.stats.totalLessons} lecciones</span>
+    </div>
     <div className="course-card-body">
       <span className="course-label">{completed ? 'COMPLETADO' : isStarted(course) ? 'EN PROGRESO' : 'CURSO'}</span>
       <h2>{course.title}</h2><p>{course.description || 'Una ruta de aprendizaje preparada para avanzar a tu ritmo.'}</p>

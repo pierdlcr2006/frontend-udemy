@@ -41,6 +41,8 @@ export interface Course {
   title: string
   description: string
   published: boolean
+  coverKey?: string | null
+  coverUrl?: string | null
   sortOrder: number
   sections: Section[]
   stats: { totalLessons: number; completedLessons: number; percent: number }
